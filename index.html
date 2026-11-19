@@ -769,14 +769,14 @@ body{font-size:17px}
 <div class="phone-frame"><div class="app">
 
   <!-- 맨 앞: 왜 이 앱이 필요할까 (뉴스 브리핑 형식, 실제 통계·출처) -->
-  <div id="news-intro" role="dialog" aria-label="은퇴 후 어디서 살까">
+  <div id="news-intro" class="gone" role="dialog" aria-label="은퇴 후 어디서 살까">
     <div class="ni-paper">
       <div class="ni-top"><span class="ni-tag">이슈 브리핑</span><span class="ni-src">통계로 보는 은퇴 이야기</span></div>
       <h1 class="ni-head">은퇴 후 시니어들,<br>어디서 살아야 할까?</h1>
       <div class="ni-stat"><b>1,024만 명</b><span>65세 이상 인구가 전체의 <em>20.0%</em>를 넘어, 2024년 12월 우리나라는 <em>초고령사회</em>가 되었어요.</span><small>행정안전부 주민등록 인구 (2024.12.23 기준)</small></div>
       <div class="ni-stat"><b>954만 명</b><span>1964~1974년생 <em>2차 베이비부머</em>가 2024년부터 11년에 걸쳐 은퇴 나이(60세)에 들어서요.</span><small>한국은행 보고서 (2024.7)</small></div>
       <p class="ni-q">나이가 들수록 <em>병원·약국·마트까지의 거리</em>가 생활을 좌우해요.<br>지금 부모님이 사시는 동네, 정말 괜찮으신가요?</p>
-      <button type="button" id="ni-go" onclick="document.getElementById('news-intro').classList.add('gone')">우리 부모님 동네 확인하기 →</button>
+      <button type="button" id="ni-go">우리 부모님 동네 확인하기 →</button>
     </div>
   </div>
 
@@ -2794,18 +2794,15 @@ function enterApp() {
   window._enteredAt = Date.now();
   drawBase();
   if(typeof inputMap !== 'undefined') drawInputBase();
-  gStart();
-  // 지도 없음
+  // 시작 화면 다음에 바로 이슈 브리핑(뉴스) → '확인하기'를 누르면 게임 시작
+  document.getElementById('news-intro').classList.remove('gone');
 }
 document.getElementById('screen-splash').addEventListener('click', () => { SFX.play('start'); enterApp(); });
-// 맨 앞 이슈 브리핑을 닫아야 시작 화면 → 게임으로 넘어감
-const _tryEnter = () => { if (!document.getElementById('news-intro')?.classList.contains('gone')) return setTimeout(_tryEnter, 400); enterApp(); };
-document.getElementById('ni-go')?.addEventListener('click', () => {
-  SFX.play('start'); document.getElementById('news-intro').classList.add('gone'); window._splashShownAt = Date.now();
-  setTimeout(_tryEnter, 1300);
+document.getElementById('ni-go').addEventListener('click', () => {
+  SFX.play('start'); document.getElementById('news-intro').classList.add('gone'); gStart();
 });
 const _delay = Math.max(1200, 2500 - (Date.now() - (window._splashShownAt || Date.now())));
-setTimeout(_tryEnter, _delay);
+setTimeout(enterApp, _delay);
 })();
 
 }
