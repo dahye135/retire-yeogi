@@ -741,6 +741,8 @@ input[type=range]{accent-color:var(--accent);width:100%}
 #screen-input .input-wrap::after{content:"";flex:2 1 0;min-height:0}
 /* 2·5·7·8단계: 남는 공간을 위·가운데·아래로 나눠 크눙이·잔디·상자를 함께 아래로 */
 #screen-input .input-wrap>.gi-topspace{flex:0 0 0;min-height:0;margin-bottom:-12px}
+/* 단계 게이지는 1단계와 같은 자리에 고정 (위 여백만큼 도로 올림) */
+#screen-input .gi-prog{transform:translateY(calc(-1 * var(--tp,0px)))}
 #screen-input:has(:is(#step-2,#step-5,#step-7,#step-8).active) .input-wrap>.gi-topspace{flex:.9 1 0}
 #screen-input:has(:is(#step-2,#step-5,#step-7,#step-8).active) .input-wrap>.gi-spacer{flex:.45 1 0}
 #screen-input:has(:is(#step-2,#step-5,#step-7,#step-8).active) .input-wrap::after{flex:1.1 1 0}
@@ -2929,7 +2931,7 @@ setTimeout(enterApp, _delay);
 </script>
 <script>
 (function(){
-  function hz(){var sc=document.getElementById("screen-input"),sp=sc&&sc.querySelector(".gi-topspace");if(!sp)return;sc.style.setProperty("--hz",(230+sp.offsetHeight)+"px");}
+  function hz(){var sc=document.getElementById("screen-input"),sp=sc&&sc.querySelector(".gi-topspace");if(!sp)return;sc.style.setProperty("--hz",(230+sp.offsetHeight)+"px");sc.style.setProperty("--tp",sp.offsetHeight+"px");}
   var f=document.getElementById("form");if(f)new MutationObserver(function(){requestAnimationFrame(hz);}).observe(f,{attributes:true,subtree:true,attributeFilter:["class"]});
   var sc=document.getElementById("screen-input");if(sc){new MutationObserver(function(){requestAnimationFrame(hz);}).observe(sc,{attributes:true,attributeFilter:["class"]});if(window.ResizeObserver)new ResizeObserver(hz).observe(sc);}
   addEventListener("resize",hz);hz();
