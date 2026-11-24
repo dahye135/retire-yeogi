@@ -2619,11 +2619,15 @@ $('#g-skip').addEventListener('click', gDone);
   let t = '', r = '';
   for (let y = 0; y < Wd.H; y++) { t += Wd.t.substr(y * Wd.W, Wd.W) + '0'.repeat(add); r += (Wd.r || '').substr(y * Wd.W, Wd.W).padEnd(Wd.W, '.') + '.'.repeat(add); }
   const T = t.split(''), R = r.split(''), set = (x, y, v) => { T[y * W2 + x] = v; R[y * W2 + x] = '3'; };
-  for (let x = 79; x <= 90; x++) set(x, 18, '6');   // 울릉도에서 동쪽으로 다리
+  for (let x = 81; x <= 90; x++) set(x, 18, '6');   // 울릉도에서 동쪽으로 다리
   for (let y = 19; y <= 21; y++) set(90, y, '6');   // 남쪽으로 꺾어 독도까지
   set(90, 22, '3'); set(91, 22, '3');              // 독도 (서도·동도)
+  for (let y = 15; y <= 19; y++) for (let x = 76; x <= 80; x++)       // 울릉도 땅 (위에 화산섬 그림, 네 모서리는 바다)
+    if (!((x === 76 || x === 80) && (y === 15 || y === 19))) set(x, y, '1');
+  set(76, 15, '0'); set(80, 15, '0'); set(76, 19, '0'); set(80, 19, '0');
   Wd.W = W2; Wd.t = T.join(''); Wd.r = R.join('');
-  Wd.isl = [['울릉도', 78, 18], ['독도', 90.5, 22]];
+  Wd.isl = [['울릉도', 74.4, 17.2], ['독도', 90.5, 22]];   // 울릉도 이름표는 섬 왼쪽 바다 위 (지도 위쪽 안내 띠에 안 가리게)
+  Wd.ulleung = [76, 15, 5];                       // 화산섬 그림 왼쪽 위 칸, 크기(5×5칸)
 })();
 const PX = (() => {
   const Wd = window.WORLD;
@@ -2679,6 +2683,50 @@ const PX = (() => {
   }
   const HOUSES = Wd.sido.map((s, i) => house(ROOF[i % ROOF.length]));
   const FLAG = (() => { const c = mk(16, 24), g = c.getContext('2d'); px(g, 3, 2, '#5E3B1E', 2, 22); px(g, 5, 2, '#FFD54A', 9, 7); px(g, 5, 2, '#E0A800', 9, 1); px(g, 8, 4, '#C0392B', 3, 3); return c; })();
+  // 울릉도 (5×5칸 그림): 성인봉 화산, 꼭대기 분화구 안 나리분지(평평한 분지·알봉·마을), 비탈 숲, 해안 절벽,
+  //   남동쪽 도동항·동쪽 저동·서쪽 태하 마을과 배, 둘레 죽도·관음도·삼선암
+  const ULLEUNG = (() => {
+    const N = 80, c = mk(N, N), g = c.getContext('2d');
+    px(g, 0, 0, '#3C8DDC', N, N);
+    [[4, 5], [60, 3], [3, 30], [70, 58], [6, 72], [74, 22], [30, 75], [48, 2]].forEach(([x, y]) => px(g, x, y, '#6FB0EC', 5, 1));
+    const ell = (cx, cy, rx, ry, col) => { for (let y = Math.ceil(cy - ry); y <= Math.floor(cy + ry); y++) { const w = Math.round(rx * Math.sqrt(Math.max(0, 1 - ((y - cy) / ry) ** 2))); if (w > 0) px(g, cx - w, y, col, w * 2, 1); } };
+    // 다리가 섬에 닿게 (서쪽·동쪽, 아래에서 둘째 칸 줄)
+    [3, 67].forEach(x => { px(g, x, 48, '#8A5A32', 10, 16); for (let y = 49; y < 64; y += 3) px(g, x, y, '#5E3B1E', 10, 1); px(g, x - 1, 48, '#5E3B1E', 1, 16); px(g, x + 10, 48, '#5E3B1E', 1, 16); });
+    // 작은 섬들: 관음도(북동), 죽도(동), 삼선암(북쪽 바위)
+    ell(68, 12, 4, 3, '#8F7A5A'); ell(68, 12, 3, 2, '#4F9C42');
+    ell(73, 37, 4, 4, '#8F7A5A'); ell(73, 37, 3, 3, '#5FAF4E'); px(g, 72, 36, '#2B6E33', 2, 2);
+    px(g, 55, 6, '#8E8478', 2, 3); px(g, 58, 7, '#8E8478', 2, 2); px(g, 55, 6, '#B7AEA2', 1, 1);
+    // 본섬: 해안 절벽 → 풀밭
+    ell(40, 40, 33, 31, '#8F7A5A');
+    ell(40, 40, 32, 30, '#A38D69');
+    for (let k = 0; k < 40; k++) { const a = k / 40 * Math.PI * 2; px(g, Math.round(40 + Math.cos(a) * 31.5), Math.round(40 + Math.sin(a) * 29.5), '#C9B58E'); }
+    ell(40, 40, 30, 28, '#5FAF4E');
+    for (let k = 0; k < 70; k++) px(g, 12 + Math.floor(hash(k, 3, 9) * 56), 14 + Math.floor(hash(k, 4, 9) * 52), hash(k, 5, 9) > .5 ? '#73C25E' : '#4F9C42');
+    // 성인봉 화산 비탈: 분화구 테두리(y=13) → 아래(y=60), 왼쪽은 밝게
+    for (let y = 13; y <= 60; y++) { const w = Math.round(10 + (y - 13) * 0.42); px(g, 40 - w, y, '#447F33', w * 2, 1); px(g, 40 - w, y, '#5E9C45', Math.max(1, Math.round(w * .5)), 1); }
+    [[26, 33, 10], [54, 31, 11], [32, 42, 10], [48, 42, 10], [40, 38, 14], [21, 46, 7], [59, 45, 7]].forEach(([x, y, h]) => px(g, x, y, '#356A28', 1, h));   // 골짜기 줄
+    // 분화구 테두리(외륜산)와 나리분지
+    ell(40, 19, 17, 8, '#356A28');
+    ell(40, 19, 14, 6, '#BFE27A');
+    px(g, 28, 19, '#A8D468', 24, 1); px(g, 31, 22, '#A8D468', 18, 1);              // 밭 줄
+    for (let y = 0; y < 5; y++) px(g, 31 - y, 17 + y, '#5E9C45', 1 + y * 2, 1);      // 알봉 (분지 안 작은 봉우리)
+    [[38, 16, '#D9483B'], [44, 17, '#3A7BD5'], [48, 20, '#E07B00']].forEach(([x, y, col]) => { px(g, x, y, col, 5, 1); px(g, x + 1, y - 1, col, 3, 1); px(g, x, y + 1, '#F2E3C6', 5, 3); px(g, x + 2, y + 2, '#7A4B2A', 1, 2); });   // 나리분지 마을
+    px(g, 36, 21, '#E8D49A', 14, 1);                                                 // 마을 길
+    // 성인봉 봉우리 (분화구 남쪽 테두리, 섬에서 가장 높은 곳)
+    for (let y = 0; y < 6; y++) px(g, 46 - y, 26 + y, '#6F665C', 1 + y * 2, 1);
+    px(g, 46, 26, '#E6E1D8', 1, 1); px(g, 45, 27, '#B7AEA2', 3, 1);
+    // 숲
+    [[15, 38], [17, 46], [63, 38], [61, 47], [22, 55], [56, 55], [13, 30], [66, 30], [28, 60], [50, 61], [19, 25], [60, 24]].forEach(([x, y]) => { px(g, x, y, '#2B6E33', 4, 4); px(g, x + 1, y, '#3E9A48', 2, 1); px(g, x + 1, y + 4, '#7A4B2A', 2, 1); });
+    // 도동항 (남동쪽 해안): 마을·방파제·배
+    [[44, 63, '#E07B00'], [50, 62, '#C0392B'], [56, 61, '#3A7BD5'], [47, 66, '#3F8F4A'], [53, 66, '#D6A21E']].forEach(([x, y, col]) => { px(g, x, y, col, 5, 1); px(g, x, y + 1, '#F2E3C6', 5, 2); px(g, x + 2, y + 2, '#7A4B2A', 1, 1); });
+    px(g, 58, 68, '#C9C9C9', 9, 2);                                                  // 방파제
+    px(g, 60, 73, '#F2F2F2', 8, 1); px(g, 61, 74, '#C9C9C9', 6, 1); px(g, 62, 70, '#5E3B1E', 1, 3); px(g, 63, 70, '#FFE08A', 3, 2);   // 배
+    px(g, 40, 74, '#F2F2F2', 5, 1); px(g, 41, 75, '#C9C9C9', 3, 1); px(g, 42, 72, '#C0392B', 2, 2);  // 작은 배
+    // 저동 (동쪽 해안), 태하 (서쪽 해안)
+    [[64, 50, '#3A7BD5'], [66, 44, '#D9483B']].forEach(([x, y, col]) => { px(g, x, y, col, 4, 1); px(g, x, y + 1, '#F2E3C6', 4, 2); });
+    [[11, 50, '#7A62C9'], [13, 43, '#E07B00']].forEach(([x, y, col]) => { px(g, x, y, col, 4, 1); px(g, x, y + 1, '#F2E3C6', 4, 2); });
+    return c;
+  })();
   const toTile = (lat, lon) => [(lon - Wd.lon0) / Wd.dlon, (Wd.lat1 - lat) / Wd.dlat];
   // 지도 그리기: 중심(위도·경도), 표시할 것(캐릭터·깃발), 확대(칸 하나 몇 픽셀)
   function render(cv, lat, lon, opt = {}) {
@@ -2693,6 +2741,7 @@ const PX = (() => {
       const t = at(x, y), img = t === 0 || t === 6 ? TILE[t][(x + y) % 2] : TILE[t][Math.floor(hash(x, y) * 4)];
       ctx.drawImage(img, Math.round(x * tsz - camX), Math.round(y * tsz - camY), tsz, tsz);
     }
+    if (Wd.ulleung) { const [ux, uy, un] = Wd.ulleung; ctx.drawImage(ULLEUNG, Math.round(ux * tsz - camX), Math.round(uy * tsz - camY), tsz * un, tsz * un); }
     ctx.textAlign = 'center'; ctx.textBaseline = 'bottom';
     Wd.vill.forEach(([name, vx, vy], i) => {
       const dx = Math.round(vx * tsz - camX + tsz / 2), dy = Math.round(vy * tsz - camY + tsz);
