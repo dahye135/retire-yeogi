@@ -163,6 +163,8 @@ p,.note,.step-sub,small{text-wrap:pretty}
 .drawer-overlay.open{opacity:1;pointer-events:all}
 .drawer{position:absolute;right:0;top:0;bottom:0;width:100%;background:var(--surface);z-index:2001;transform:translateX(100%);transition:transform .25s cubic-bezier(.4,0,.2,1);display:flex;flex-direction:column;box-shadow:-4px 0 24px rgba(0,0,0,.15)}
 .drawer.open{transform:none}
+/* 닫혀 있을 때는 아예 숨김: 화면 오른쪽 밖에 있어도 그림자와 흰 가장자리 1px이 화면 끝에 비쳐 흰 줄처럼 보였음 */
+.drawer:not(.open){visibility:hidden;box-shadow:none;transition:transform .25s cubic-bezier(.4,0,.2,1),visibility 0s linear .25s,box-shadow 0s linear .25s}
 .drawer-head{padding:10px 12px 8px;border-bottom:1px solid var(--line);display:flex;align-items:flex-start;justify-content:space-between;gap:12px;flex:none}
 .drawer-head h3{margin:0;font-size:clamp(.74rem,2.85vw,.92rem);font-weight:700;line-height:1.3}
 .drawer-head small{color:var(--muted);font-size:clamp(.52rem,2vw,.66rem);display:block;margin-top:2px}
@@ -738,6 +740,9 @@ input[type=range]{accent-color:var(--accent);width:100%}
 #news-intro .ni-stat small{grid-column:2;font-size:clamp(.6rem,1.45vh,.72rem);color:#6B6150}
 #news-intro em{font-style:normal;color:#1F6FC5}
 #news-intro .ni-paper{container-type:inline-size}
+/* PC 휴대폰 틀: 높이를 2px 단위로 내려 맞춰 폭(높이÷2)이 0.5px로 끝나지 않게 — 오른쪽 끝 반 픽셀 틈(흰 줄) 방지 */
+.phone-frame{height:round(down, min(960px, calc(100vh - 40px), calc((100vw - 40px) * 18 / 9)), 2px)}
+@media(min-width:700px){.phone-frame{height:round(down, min(1280px, calc(100vh - 40px), calc((100vw - 40px) * 18 / 9)), 2px)}}
 /* 2·5·7·8단계만: 고르는 칸과 글씨 조금 더 크게 */
 #step-2 .seg button,#step-5 .seg button,#step-7 .seg button,#step-8 .seg button,#step-8 #prefer-none{font-size:1.03rem!important;padding:14px 16px!important;min-height:52px}
 #step-5 #scope{font-size:1rem!important;padding:12px 14px!important;min-height:50px}
