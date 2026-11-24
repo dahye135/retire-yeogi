@@ -1357,10 +1357,16 @@ function hav(a, b, c, e) {
   const p = Math.PI / 180, x = Math.sin((c - a) * p / 2) ** 2 + Math.cos(a * p) * Math.cos(c * p) * Math.sin((e - b) * p / 2) ** 2;
   return 2 * 6371000 * Math.asin(Math.sqrt(x));
 }
-function visitSec(a, b) {   // 자녀 집 → 동네, 자동차
-  const m = hav(a.lat, a.lon, b.lat, b.lon) * 1.3;
-  const v = m < 20000 ? 9 : m < 80000 ? 16 : 22;
-  return m / v + 300;
+// 자녀 집 → 동네, 자동차 시간 어림: 직선거리(km) → 분, 길찾기 앱의 실제 시간에 가깝게 맞춘 표
+//  가까운 거리는 시내 신호·정체, 중간 거리는 돌아가는 길(예: 울주 서생면 → 부산 부전2동 직선 33km ≈ 1시간 13분), 먼 거리는 고속도로
+//  예전 식(직선×1.3, 평균 시속 약 58km)은 실제보다 짧게 나와 '1시간 이내' 조건에 1시간 넘는 곳이 들어갔음
+const VISIT_TABLE = [[0, 8], [5, 21], [10, 32], [20, 50], [33, 72], [50, 90], [75, 105], [100, 120], [140, 140], [200, 175], [325, 260], [500, 375]];
+function visitSec(a, b) {
+  const km = hav(a.lat, a.lon, b.lat, b.lon) / 1000;
+  let i = 1;
+  while (i < VISIT_TABLE.length - 1 && km > VISIT_TABLE[i][0]) i++;
+  const [k0, m0] = VISIT_TABLE[i - 1], [k1, m1] = VISIT_TABLE[i];
+  return (m0 + (m1 - m0) * (km - k0) / (k1 - k0)) * 60;
 }
 function fmt(sec) {
   if (sec == null) return '자료 없음';
@@ -1937,7 +1943,9 @@ function renderDiag() {
   // 너무 먼 곳이 있으면 놀란 크눙이: 자녀 집 방문 1시간 30분 넘음, 또는 병원(진료과)까지 1시간 넘음
   const visit = o.child ? visitSec(o.child, p) : null;
   const farHosp = cur.items.find(x => x.key === 'hosp' && x.t > 3600);
+  const overMax = visit != null && o.childMax && visit > o.childMax;      // 고른 방문 시간 제한보다 멂
   const far = visit != null && visit > 5400 ? `헉! 자녀 집에서 차로 ${fmt(visit)}이나 걸려요. 엄청 머네요!!`
+    : overMax ? `헉! 자녀 집에서 차로 ${fmt(visit)} 걸려요. 원하신 ${fmt(o.childMax)} 이내보다 멀어요!!`
     : farHosp ? `헉! ${farHosp.label}까지 1시간이 넘게 걸려요. 엄청 머네요!!` : '';
   $('#diag').innerHTML = `
     <div class="rc">
