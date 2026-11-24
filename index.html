@@ -4,6 +4,18 @@
 </style>
 </head><body>
 <script>
+// 갤럭시 탭 같은 태블릿을 세로로 들었을 때: 앱 전체를 화면 크기에 맞춰 키움(큰 휴대폰처럼). 가로 화면·휴대폰·PC는 그대로
+(function () {
+  function setZoom() {
+    var w = innerWidth, h = innerHeight;
+    var z = (h >= w && w >= 700) ? Math.max(1, Math.min(w / 430, h / 800)) : 1;
+    document.documentElement.style.setProperty('--tabzoom', z.toFixed(3));
+    document.documentElement.classList.toggle('tab-zoom', z > 1);
+  }
+  setZoom(); addEventListener('resize', setZoom);
+})();
+</script>
+<script>
 // 시작 화면이 실제로 보이기 시작한 시각 (claude.ai는 페이지를 다 불러온 뒤 보여 주므로 load·화면 표시 때 다시 잼)
 window._splashShownAt = Date.now();
 addEventListener('load', function () { window._splashShownAt = Date.now(); });
@@ -743,6 +755,9 @@ input[type=range]{accent-color:var(--accent);width:100%}
 /* PC 휴대폰 틀: 높이를 2px 단위로 내려 맞춰 폭(높이÷2)이 0.5px로 끝나지 않게 — 오른쪽 끝 반 픽셀 틈(흰 줄) 방지 */
 .phone-frame{height:round(down, min(960px, calc(100vh - 40px), calc((100vw - 40px) * 18 / 9)), 2px)}
 @media(min-width:700px){.phone-frame{height:round(down, min(1280px, calc(100vh - 40px), calc((100vw - 40px) * 18 / 9)), 2px)}}
+/* 태블릿 세로(tab-zoom): 틀 안의 앱·상세 정보 창·소리 버튼을 같은 배율로 키움 — 가로·휴대폰·PC는 배율 1 */
+.tab-zoom .phone-frame > *{zoom:var(--tabzoom,1)}
+.tab-zoom .campus-game{width:min(280px,70%);top:232px;transform:translate(-50%,-100%)}   /* 태블릿 세로: 크게 보이는 크눙이에 안 가리게 지평선 위에 세움 (단계마다 같은 자리) */
 /* 2·5·7·8단계만: 고르는 칸과 글씨 조금 더 크게 */
 #step-2 .seg button,#step-5 .seg button,#step-7 .seg button,#step-8 .seg button,#step-8 #prefer-none{font-size:1.03rem!important;padding:14px 16px!important;min-height:52px}
 #step-5 #scope{font-size:1rem!important;padding:12px 14px!important;min-height:50px}
