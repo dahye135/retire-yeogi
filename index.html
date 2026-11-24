@@ -1801,7 +1801,13 @@ function prefMatch(d, e, sel, o) {
   const f = {
     coastal: () => coast == null ? null : clamp01((15 - coast) / 12),            // 3km 이내 만점, 15km 밖 0
     inland: () => coast == null ? null : clamp01((coast - 5) / 15),              // 20km 밖 만점, 5km 이내 0
-    forest: () => elev == null ? null : Math.max(clamp01((elev - 60) / 240), clamp01((slope - 2) / 10)),
+    // 숲·산촌: 높거나 경사진 지형이면서 도시가 아닌 곳 — 언덕 위 도심(1km 안 병원·약국·마트가 많은 동)은 숲·산촌이 아님
+    forest: () => {
+      if (elev == null) return null;
+      const terrain = Math.max(clamp01((elev - 60) / 240), clamp01((slope - 2) / 10));
+      const urban = kind === 'myeon' ? 0 : kind === 'eup' ? 0.3 : clamp01((dense - 3) / 22);
+      return terrain * (1 - urban);
+    },
     city: () => kind === 'dong' ? (dense >= 30 ? 1 : 0.7) : kind === 'eup' ? 0.3 : 0,
     suburb: () => kind === 'eup' ? 1 : kind === 'dong' ? (dense >= 30 ? 0.3 : 0.8) : 0.4,
     rural: () => kind === 'myeon' ? 1 : kind === 'eup' ? 0.5 : 0,
@@ -1822,13 +1828,14 @@ function prefMatch(d, e, sel, o) {
     safe: () => elev == null ? null : 1 - Math.max(elev < 10 && coast < 2 ? 1 : elev < 20 && coast < 5 ? 0.5 : 0, clamp01((slope - 10) / 15)),
   };
   let sum = 0;
-  const hits = [];
+  const hits = [], vals = {};
   sel.forEach(k => {
     const v = f[k] ? f[k]() : null;
+    vals[k] = v;
     sum += v == null ? 0.5 : v;                     // 자료가 없으면 중간값
     if (v != null && v >= 0.6) hits.push(PREF_LABEL[k]);
   });
-  return { avg: sel.length ? sum / sel.length : 0, hits };
+  return { avg: sel.length ? sum / sel.length : 0, hits, vals };
 }
 
 function run() {
@@ -1852,7 +1859,14 @@ function run() {
   const asList = v => Array.isArray(v) ? v : (v ? [v] : []);
   const prefSel = [...asList(state.preferEnv), ...asList(state.preferVillage), ...asList(state.preferFacility), ...asList(state.preferCond), ...(state.silver === 'yes' ? ['silver'] : [])];
   // 순위 기준 하나: 종합 점수(희망사항이 있으면 편의 55% + 희망사항 45%, 없으면 편의 점수) → 같으면 월 생활비가 싼 곳 → 가까운 곳
-  pool.forEach(x => { const m = prefMatch(x.d, x.e, prefSel, o); x.prefHits = m.hits; x.rank = Math.round((prefSel.length ? x.e.score * 0.55 + m.avg * 45 : x.e.score) * 10) / 10; });
+  pool.forEach(x => { const m = prefMatch(x.d, x.e, prefSel, o); x.prefHits = m.hits; x.prefVals = m.vals; x.rank = Math.round((prefSel.length ? x.e.score * 0.55 + m.avg * 45 : x.e.score) * 10) / 10; });
+  // 사는 환경(해안·내륙·숲·산촌)과 도시·근교·시골은 꼭 맞춰야 하는 조건: 고른 것 중 하나라도 맞는(0.5 이상) 동네 안에서만 추천
+  //  (자료가 없으면 통과, 맞는 동네가 10곳보다 적으면 원래대로 점수 순)
+  const HARD = [['coastal', 'inland', 'forest'], ['city', 'suburb', 'rural']].map(g => g.filter(k => prefSel.includes(k))).filter(g => g.length);
+  if (HARD.length) {
+    const ok = pool.filter(x => HARD.every(g => g.some(k => (x.prefVals[k] ?? 0.5) >= 0.5)));
+    if (ok.length >= 10) pool = ok;
+  }
   const top = pool.slice().sort((a, b) => b.rank - a.rank).slice(0, 400);      // 생활비는 위쪽 후보만 계산(빠르게)
   top.forEach(x => { x.cost = monthlyCost(x.d, o).total; });
   pool.sort((a, b) => b.rank - a.rank || (a.cost ?? 1e9) - (b.cost ?? 1e9) || a.near - b.near);
@@ -2031,7 +2045,7 @@ function renderAlts() {
       if (el && data.content?.[0]?.text) { el.style.display = 'block'; el.textContent = data.content[0].text; }
     }).catch(() => {});   // Claude 밖(안드로이드 등)에서는 위의 앱 안 문장을 그대로 씀
   });
-  $('#alts').innerHTML = `<div class="rc-talk"><p><b>${scopeTxt}에서 찾은 TOP 3예요!</b><br>${state.prefSel && state.prefSel.length ? '조건이랑 희망사항에 딱 맞는 동네들이에요.' : '같은 조건이면 여기가 더 편하세요!'} 카드를 누르시면 지도에서 보여 드릴게요.</p></div>${body}
+  $('#alts').innerHTML = `<div class="rc-talk"><p><b>${scopeTxt}에서 찾은 TOP 3예요!</b><br>${state.prefSel && state.prefSel.length ? (picks.every(x => x.prefHits.length === state.prefSel.length) ? '조건이랑 희망사항에 딱 맞는 동네들이에요.' : '조건이랑 희망사항을 함께 따져 고른 동네들이에요. 맞는 희망사항은 카드에 적어 뒀어요.') : '같은 조건이면 여기가 더 편하세요!'} 카드를 누르시면 지도에서 보여 드릴게요.</p></div>${body}
     <div style="height:8px"></div>
     <button type="button" id="btn-retry" style="margin-top:10px" style="width:100%;padding:11px;border:1.5px solid var(--line);border-radius:10px;background:var(--surface);font-size:.85rem;font-weight:600;cursor:pointer;font-family:inherit;color:var(--muted)">조건 바꿔서 다시 진단하기</button>
     <p class="note" style="margin-top:8px">현재 동네가 충분히 편리하다면 이사보다 부족한 시설(방문 진료, 배달, 이동 지원 등)을 보완하는 편이 나을 수 있습니다.</p>${state.prefSel && state.prefSel.length ? `<p class="note">희망사항은 생활 편의 점수와 함께 순위에 반영했습니다(편의 55% · 희망사항 45%).</p>` : ''}`;
