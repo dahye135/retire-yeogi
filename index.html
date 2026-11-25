@@ -2868,6 +2868,19 @@ const PX = (() => {
     return c;
   })();
   const toTile = (lat, lon) => [(lon - Wd.lon0) / Wd.dlon, (Wd.lat1 - lat) / Wd.dlat];
+  // 이름표 상자: 글씨의 실제 위·아래 끝을 재서 상자 한가운데에, 정수 픽셀에 그려서 도트 글씨가 깨지지 않게
+  //  y는 상자 위쪽(fromBottom이면 아래쪽) 좌표, 돌려주는 값은 상자 높이
+  function tag(ctx, text, cx, y, S, border, fill, ink, fromBottom) {
+    ctx.font = `${Math.round(8 * S)}px NeoDunggeunmo,"Noto Sans KR",sans-serif`;
+    ctx.textAlign = 'center'; ctx.textBaseline = 'alphabetic';
+    const m = ctx.measureText(text), asc = m.actualBoundingBoxAscent, desc = m.actualBoundingBoxDescent;
+    const H = Math.max(11 * S, Math.ceil(asc + desc) + 4 * S), w = Math.round(m.width + 8 * S);
+    const x = Math.round(cx - w / 2), top = Math.round(fromBottom ? y - H : y);
+    ctx.fillStyle = border; ctx.fillRect(x, top, w, H);
+    ctx.fillStyle = fill; ctx.fillRect(x + S, top + S, w - 2 * S, H - 2 * S);
+    ctx.fillStyle = ink; ctx.fillText(text, Math.round(cx), Math.round(top + (H + asc - desc) / 2));
+    return H;
+  }
   // 지도 그리기: 중심(위도·경도), 표시할 것(캐릭터·깃발), 확대(칸 하나 몇 픽셀)
   function render(cv, lat, lon, opt = {}) {
     const r = cv.getBoundingClientRect(), dpr = Math.min(2, window.devicePixelRatio || 1);
@@ -2890,22 +2903,14 @@ const PX = (() => {
       // 이름표는 짧게: '충청남도'처럼 '도'만 떼면 '충청남'이 되므로 흔히 쓰는 줄임말(충남·충북·경남·경북·전남·전북)로
       const SHORT = { 충청남도: '충남', 충청북도: '충북', 경상남도: '경남', 경상북도: '경북', 전라남도: '전남', 전라북도: '전북' };
       const label = SHORT[name] || name.replace(/(특별자치도|특별자치시|광역시|특별시|통합특별시|도)$/, '');
-      ctx.font = `${Math.round(8 * S)}px NeoDunggeunmo,"Noto Sans KR",sans-serif`;
-      const w = ctx.measureText(label).width + 6 * S;
-      ctx.fillStyle = '#3B2A20'; ctx.fillRect(dx - w / 2, dy - tsz * 2 - 9 * S, w, 9 * S);
-      ctx.fillStyle = '#FFE9B0'; ctx.fillRect(dx - w / 2 + S, dy - tsz * 2 - 8 * S, w - 2 * S, 7 * S);
-      ctx.fillStyle = '#3B2A20'; ctx.fillText(label, dx, dy - tsz * 2 - 1.6 * S);
+      tag(ctx, label, dx, dy - tsz * 2, S, '#3B2A20', '#FFE9B0', '#3B2A20', true);
     });
     (Wd.isl || []).forEach(([name, vx, vy]) => {        // 섬 이름표 (울릉도·독도)
       if (opt.label === name) return;                    // 크눙이 아래 이름표와 같으면 한 번만
       const onIt = Math.hypot(vx + .5 - fx, vy + .5 - fy) < 1.6;      // 크눙이가 섬 위에 있으면 이름표를 머리 위로
       const dx = Math.round(vx * tsz - camX + tsz / 2), dy = Math.round((vy - (onIt ? 1.5 : 0)) * tsz - camY);
       if (dx < -tsz * 3 || dy < -tsz * 3 || dx > cv.width + tsz * 3 || dy > cv.height + tsz * 3) return;
-      ctx.font = `${Math.round(8 * S)}px NeoDunggeunmo,"Noto Sans KR",sans-serif`;
-      const w = ctx.measureText(name).width + 6 * S;
-      ctx.fillStyle = '#3B2A20'; ctx.fillRect(dx - w / 2, dy - 9 * S, w, 9 * S);
-      ctx.fillStyle = '#FFE9B0'; ctx.fillRect(dx - w / 2 + S, dy - 8 * S, w - 2 * S, 7 * S);
-      ctx.fillStyle = '#3B2A20'; ctx.fillText(name, dx, dy - 1.6 * S);
+      tag(ctx, name, dx, dy, S, '#3B2A20', '#FFE9B0', '#3B2A20', true);
     });
     const cx = cv.width / 2, cy = cv.height / 2 + tsz / 2;
     if (opt.flag) ctx.drawImage(FLAG, cx - tsz * .2, cy - tsz * 1.8, tsz, tsz * 1.5);
@@ -2918,13 +2923,7 @@ const PX = (() => {
       else ctx.drawImage(sp, sx - w / 2, sy, w, h);
     }
     render.tsz = tsz;
-    if (opt.label) {
-      ctx.font = `${Math.round(8 * S)}px NeoDunggeunmo,"Noto Sans KR",sans-serif`; ctx.textBaseline = 'top';
-      const w = ctx.measureText(opt.label).width + 10 * S, y = cy + S * 2;
-      ctx.fillStyle = '#0B2A4D'; ctx.fillRect(cx - w / 2, y, w, 11 * S);
-      ctx.fillStyle = '#FFD54A'; ctx.fillRect(cx - w / 2 + S, y + S, w - 2 * S, 9 * S);
-      ctx.fillStyle = '#0B2A4D'; ctx.fillText(opt.label, cx, y + 2 * S);
-    }
+    if (opt.label) tag(ctx, opt.label, cx, cy + S * 2, S, '#0B2A4D', '#FFD54A', '#0B2A4D', false);
   }
   const sidoCenter = name => { const v = Wd.vill.find(v => v[0] === name); return v ? [Wd.lat1 - (v[2] + .5) * Wd.dlat, Wd.lon0 + (v[1] + .5) * Wd.dlon] : null; };
   const tileAt = (lat, lon) => { const [x, y] = toTile(lat, lon); return at(Math.floor(x), Math.floor(y)); };
