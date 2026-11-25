@@ -2067,7 +2067,7 @@ function renderAlts() {
             </div>
             <span class="stage-sc">${state.prefSel && state.prefSel.length
               ? `<b>${Math.round(x.rank)}</b><small>편의 ${x.e.score}</small>`
-              : `<b>${x.e.score}</b><small>${diff > 0 ? '+' + diff + '점' : '편의 점수'}</small>`}</span>
+              : `<b>${x.e.score}</b><small>${diff > 0 ? '+' + diff : diff}점</small>`}</span>
           </div>
         </div>
       </button>
@@ -2104,7 +2104,7 @@ function renderAlts() {
       if (el && data.content?.[0]?.text) { el.style.display = 'block'; el.textContent = data.content[0].text; }
     }).catch(() => {});   // Claude 밖(안드로이드 등)에서는 위의 앱 안 문장을 그대로 씀
   });
-  $('#alts').innerHTML = `<div class="rc-talk"><p><b>${scopeTxt}에서 찾은 TOP 3예요!</b><br>${picks.some(x => x.relaxed) ? (state.result.strictCount ? `조건에 모두 맞는 동네가 ${state.result.strictCount}곳뿐이라, 나머지는 조건에 가장 가까운 곳으로 채웠어요.` : '조건에 모두 맞는 동네가 없어서 가장 가까운 곳을 골랐어요. 자녀 집 시간 제한을 늘리거나 원하는 환경을 바꿔 보세요.') : state.prefSel && state.prefSel.length ? (picks.every(x => x.prefHits.length === state.prefSel.length) ? '조건이랑 희망사항에 딱 맞는 동네들이에요.' : '조건에 맞는 동네 중에서 희망사항까지 함께 따져 골랐어요. 맞는 희망사항은 카드에 적어 뒀어요.') : picks.every(x => x.e.score > cur.score) ? '같은 조건이면 여기가 더 편하세요!' : '같은 조건으로 생활 편의를 따져 고른 동네들이에요.'} 카드를 누르시면 지도에서 보여 드릴게요.</p></div>${body}
+  $('#alts').innerHTML = `<div class="rc-talk"><p><b>${scopeTxt}에서 찾은 TOP 3예요!</b><br>${picks.some(x => x.relaxed) ? (state.result.strictCount ? `조건에 모두 맞는 동네가 ${state.result.strictCount}곳뿐이라, 나머지는 조건에 가장 가까운 곳으로 채웠어요.` : '조건에 모두 맞는 동네가 없어서 가장 가까운 곳을 골랐어요. 자녀 집 시간 제한을 늘리거나 원하는 환경을 바꿔 보세요.') : state.prefSel && state.prefSel.length ? (picks.every(x => x.prefHits.length === state.prefSel.length) ? '조건이랑 희망사항에 딱 맞는 동네들이에요.' : '조건에 맞는 동네 중에서 희망사항까지 함께 따져 골랐어요. 맞는 희망사항은 카드에 적어 뒀어요.') : '같은 조건이면 여기가 더 편하세요!'} 카드를 누르시면 지도에서 보여 드릴게요.</p></div>${body}
     <div style="height:8px"></div>
     <button type="button" id="btn-retry" style="margin-top:10px" style="width:100%;padding:11px;border:1.5px solid var(--line);border-radius:10px;background:var(--surface);font-size:.85rem;font-weight:600;cursor:pointer;font-family:inherit;color:var(--muted)">조건 바꿔서 다시 진단하기</button>
     <p class="note" style="margin-top:8px">현재 동네가 충분히 편리하다면 이사보다 부족한 시설(방문 진료, 배달, 이동 지원 등)을 보완하는 편이 나을 수 있습니다.</p>${state.prefSel && state.prefSel.length ? `<p class="note">희망사항은 생활 편의 점수와 함께 순위에 반영했습니다(편의 55% · 희망사항 45%).</p>` : ''}`;
@@ -2171,7 +2171,7 @@ function openCompare(k) {
     <div class="cmp-sum">
       <div><span class="dot pick"></span>추천 동네가 더 나은 항목 <b>${winB.length}개</b>${winB.length ? `<small>${winB.join(', ')}</small>` : ''}</div>
       <div><span class="dot"></span>현재 동네가 더 나은 항목 <b>${winA.length}개</b>${winA.length ? `<small>${winA.join(', ')}</small>` : ''}</div>
-      ${diff > 0 ? `<div class="cmp-diff">생활 편의 점수 <b style="color:var(--good)">+${diff}점</b></div>` : ''}
+      <div class="cmp-diff">생활 편의 점수 <b style="color:var(--${diff >= 0 ? 'good' : 'bad'})">${diff > 0 ? '+' : ''}${diff}점</b></div>
     </div>
     <table class="cmp">
       <thead><tr><th></th><th>현재<small>${p.name}</small></th><th>추천<small>${x.d.name}</small></th></tr></thead>
@@ -2268,9 +2268,7 @@ function openDrawer(x, cur) {
     <div class="drawer-section">
       <div class="info-grid">
         <div class="info-box"><div class="val">${e.score}점</div><div class="lbl">생활 편의 점수</div></div>
-        ${diff > 0 ? `<div class="info-box"><div class="val" style="color:var(--good)">+${diff}점</div><div class="lbl">현재 동네 대비</div></div>`
-          : state.prefSel && state.prefSel.length && x.prefHits ? `<div class="info-box"><div class="val" style="color:var(--good)">${x.prefHits.length}/${state.prefSel.length}</div><div class="lbl">희망사항 맞음</div></div>`
-          : `<div class="info-box"><div class="val">${cur.score}점</div><div class="lbl">지금 사시는 동네</div></div>`}
+        <div class="info-box"><div class="val" style="color:var(--${diff>=0?'good':'bad'})">${diff>0?'+':''}${diff}점</div><div class="lbl">현재 동네 대비</div></div>
       </div>
       <div class="score-bar-wrap">${scoreRows}</div>
     </div>
@@ -3064,7 +3062,7 @@ function renderFinal() {
     ${x.relaxed ? `<div style="background:#FFF1C1;color:#7A3326;border:2px solid #3B2A20;padding:6px 10px;font-size:.78rem;text-align:center;word-break:keep-all">조건에 모두 맞는 동네가 없어서, 조건에 가장 가까운 곳이에요</div>` : ''}
     <div class="fx-gain">
       <div><b class="${save < 0 ? 'minus' : ''}">${save >= 0 ? '월 ' + save + '만 원' : '월 ' + (-save) + '만 원 더'}</b><small>${save >= 0 ? `생활비 절약<br>(1년 약 ${Math.round(save * 12)}만 원)` : '생활비'}</small></div>
-      <div><b>${gain > 0 ? '+' + gain : x.e.score}점</b><small>생활 편의 점수</small></div>
+      <div><b class="${gain < 0 ? 'minus' : ''}">${gain >= 0 ? '+' : ''}${gain}점</b><small>생활 편의 점수</small></div>
     </div>
     ${homeCard}
     <div class="fx-btns">
