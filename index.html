@@ -2765,8 +2765,26 @@ $('#g-skip').addEventListener('click', gDone);
   for (let y = 15; y <= 19; y++) for (let x = 76; x <= 80; x++)       // 울릉도 땅 (위에 화산섬 그림, 네 모서리는 바다)
     if (!((x === 76 || x === 80) && (y === 15 || y === 19))) set(x, y, '1');
   set(76, 15, '0'); set(80, 15, '0'); set(76, 19, '0'); set(80, 19, '0');
+  // 제주: 실제 해안선에 맞춘 섬 모양(기울어진 타원 + 들쭉날쭉 해안) — 그림(JEJU)과 걷는 칸이 같은 식을 씀
+  Wd.jejuIn = (ax, ay) => { const dx = ax - 101, dy = ay - 57, u = dx * 0.972 - dy * 0.235, v = dx * 0.235 + dy * 0.972, n = Math.sin(ax * 0.31 + 1.7) * 0.03 + Math.sin(ay * 0.47 + ax * 0.11) * 0.025; return (u / 84) ** 2 + (v / 38) ** 2 + n < 1; };
+  Wd.jeju = [18, 80, 13, 9];                      // 제주 그림 왼쪽 위 칸, 크기(13×9칸)
+  for (let y = 80; y < Math.min(89, Wd.H); y++) for (let x = 18; x < 31; x++) {
+    if (x === 24 && y === 80) continue;           // 육지에서 오는 다리 끝
+    T[y * W2 + x] = Wd.jejuIn((x - 18) * 16 + 8, (y - 80) * 16 + 8) ? '1' : '0';
+  }
+  T[81 * W2 + 24] = '1';                          // 다리가 닿는 제주시 해안
+  D.forEach(d => {                                // 제주 동네(행정복지센터) 자리는 해안 바로 앞이어도 걸을 수 있게
+    if (!/^제주/.test(d.sido) || d.name === d.sgg) return;
+    const x = Math.floor((d.lon - Wd.lon0) / Wd.dlon), y = Math.floor((Wd.lat1 - d.lat) / Wd.dlat);
+    if (x >= 18 && x < 31 && y >= 80 && y < Math.min(89, Wd.H)) T[y * W2 + x] = '1';
+  });
+  T[74 * W2 + 21] = '1'; Wd.chuja = [21, 74, 1, 1];   // 추자도 (1칸 그림)
+  const jv = Wd.vill.find(v => v[0] === '제주특별자치도'); if (jv) { jv[1] = 24; jv[2] = 82; }   // 제주 마을: 다리가 닿는 제주시 해안 (한라산은 그 아래)
+  // 독도: 서도(89)·선착장(90, 울릉도에서 오는 다리 끝)·동도(91) — 그림 DOKDO(4×2칸)
+  [[89, 22, '1'], [90, 22, '6'], [91, 22, '1'], [92, 22, '0'], [89, 23, '0'], [90, 23, '0'], [91, 23, '0'], [92, 23, '0']].forEach(([x, y, v]) => { T[y * W2 + x] = v; });
+  Wd.dokdo = [89, 22, 4, 2];
   Wd.W = W2; Wd.t = T.join(''); Wd.r = R.join('');
-  Wd.isl = [['울릉도', 74.4, 17.2], ['독도', 90.5, 22]];   // 울릉도 이름표는 섬 왼쪽 바다 위 (지도 위쪽 안내 띠에 안 가리게)
+  Wd.isl = [['울릉도', 74.4, 17.2], ['독도', 90.5, 24.75]];   // 울릉도 이름표는 섬 왼쪽 바다 위, 독도 이름표는 섬 그림 바로 아래
   Wd.ulleung = [76, 15, 5];                       // 화산섬 그림 왼쪽 위 칸, 크기(5×5칸)
 })();
 const PX = (() => {
@@ -2867,6 +2885,144 @@ const PX = (() => {
     [[11, 50, '#7A62C9'], [13, 43, '#E07B00']].forEach(([x, y, col]) => { px(g, x, y, col, 4, 1); px(g, x, y + 1, '#F2E3C6', 4, 2); });
     return c;
   })();
+  // 제주 (13×9칸 그림, 왼쪽 위 칸 (18, 80)): 한라산·백록담, 성산일출봉, 오름, 귤밭·돌담, 유채꽃, 협재·함덕 에메랄드 바다,
+  //   제주공항, 돌하르방, 서귀포·정방폭포, 중문·야자수, 산방산, 해녀, 우도·비양도·차귀도·가파도·마라도
+  const JEJU = (() => {
+    const W = 208, H = 144, c = mk(W, H), g = c.getContext('2d'), inI = Wd.jejuIn;
+    const ell = (cx, cy, rx, ry, col) => { for (let y = Math.ceil(cy - ry); y <= Math.floor(cy + ry); y++) { const w = Math.round(rx * Math.sqrt(Math.max(0, 1 - ((y - cy) / ry) ** 2))); if (w > 0) px(g, cx - w, y, col, w * 2, 1); } };
+    const onLand = (x, y, col, w = 1, h = 1) => { for (let j = 0; j < h; j++) for (let i = 0; i < w; i++) if (inI(x + i, y + j)) px(g, x + i, y + j, col); };
+    // 바다·물결
+    px(g, 0, 0, '#3C8DDC', W, H);
+    for (let i = 0; i < 46; i++) px(g, Math.floor(hash(i, 3, 41) * (W - 6)), Math.floor(hash(3, i, 42) * H), '#6FB0EC', 3 + Math.floor(hash(i, 5, 43) * 4), 1);
+    // 얕은 에메랄드 바다: 협재(비양도 앞)·함덕·우도·성산
+    [[31, 52, 12, 9], [131, 12, 15, 6], [199, 21, 9, 8], [186, 43, 8, 5]].forEach(([x, y, rx, ry]) => { ell(x, y, rx, ry, '#3FB8C8'); ell(x, y, rx - 3, ry - 2, '#6ED8D0'); });
+    // 섬: 해안은 검은 현무암, 모래 해변(협재·이호·함덕·표선·중문)은 흰 모래
+    const BEACH = [[36, 54, 7], [68, 25, 5], [130, 17, 8], [156, 79, 6], [86, 97, 6]];
+    for (let y = 0; y < H; y++) for (let x = 0; x < W; x++) {
+      if (!inI(x, y)) continue;
+      const e1 = !inI(x - 1, y) || !inI(x + 1, y) || !inI(x, y - 1) || !inI(x, y + 1);
+      const e2 = !e1 && (!inI(x - 2, y) || !inI(x + 2, y) || !inI(x, y - 2) || !inI(x, y + 2));
+      const beach = BEACH.some(([bx, by, r]) => (x - bx) ** 2 + (y - by) ** 2 < r * r);
+      let col = (x * 7 + y * 13) % 11 === 0 ? '#5DAE4C' : (x * 3 + y * 5) % 17 === 0 ? '#7FCC6A' : '#6CBF5A';
+      if (e1) col = beach ? '#F4E7C0' : '#3A3532';
+      else if (e2) col = beach ? '#FBF3DA' : ((x + y) % 3 ? '#5A524C' : col);
+      px(g, x, y, col);
+    }
+    // 돌담 (밭 사이 검은 돌담 점선)
+    const wall = (x0, y0, x1, y1) => { const n = Math.max(Math.abs(x1 - x0), Math.abs(y1 - y0)); for (let i = 0; i <= n; i += 2) onLand(Math.round(x0 + (x1 - x0) * i / n), Math.round(y0 + (y1 - y0) * i / n), '#4A4440'); };
+    [[30, 64, 54, 60], [28, 74, 52, 70], [44, 56, 44, 80], [150, 50, 176, 44], [146, 62, 176, 56], [160, 40, 160, 70], [132, 76, 158, 70], [62, 40, 86, 36]].forEach(a => wall(...a));
+    // 유채꽃 밭 (노란 꽃): 동쪽 들판·산방산 옆
+    [[152, 57, 7, 3], [168, 50, 5, 3], [64, 92, 6, 2], [140, 70, 5, 2]].forEach(([x, y, rx, ry]) => { ell(x, y, rx, ry, '#F6D743'); for (let i = 0; i < 9; i++) px(g, x - rx + Math.floor(hash(i, x, 51) * rx * 2), y - ry + Math.floor(hash(y, i, 52) * ry * 2 + 1), '#E8B92E'); });
+    // 곶자왈 숲
+    [[52, 60], [60, 54], [34, 66], [140, 54], [132, 46]].forEach(([x, y]) => { px(g, x, y, '#2B6E33', 5, 4); px(g, x + 1, y, '#3E9A48', 3, 1); px(g, x + 2, y + 4, '#7A4B2A', 1, 1); });
+    // 귤밭 (남쪽, 돌담으로 둘러싼 밭에 귤나무: 초록 잎 + 주황 귤)
+    [[64, 86, 18, 8], [86, 88, 14, 6], [128, 82, 16, 6]].forEach(([x, y, w, h]) => {
+      for (let i = 0; i <= w; i += 2) { onLand(x + i, y, '#4A4440'); onLand(x + i, y + h, '#4A4440'); }
+      for (let j = 0; j <= h; j += 2) { onLand(x, y + j, '#4A4440'); onLand(x + w, y + j, '#4A4440'); }
+      for (let ty = y + 2; ty < y + h - 1; ty += 3) for (let tx = x + 2; tx < x + w - 2; tx += 4) { onLand(tx, ty, '#2F7D3A', 3, 2); onLand(tx + 1, ty, '#FF9E2C'); }
+    });
+    // 한라산: 넓게 퍼진 순상화산 — 아래 숲 → 위 바위·눈, 꼭대기 백록담(분화구 호수), 왼쪽은 햇빛
+    const HX = 99, HT = 52, HB = 84, HW = 50;
+    const hHalf = t => Math.round(10 + (HW - 10) * Math.sqrt(t));            // 둥글넓적한 방패 모양(위는 완만, 어깨가 넓음)
+    for (let y = HT; y <= HB; y++) {
+      const t = (y - HT) / (HB - HT), half = hHalf(t);
+      const col = t < .22 ? '#8E8478' : t < .42 ? '#5E7F45' : '#3E8E41', lit = t < .22 ? '#A79C90' : t < .42 ? '#78985A' : '#4FA24F';
+      if (t > .8) {   // 아랫단은 풀밭에 스며들게 (점점 듬성듬성, 가장자리도 들쭉날쭉)
+        const keep = 1 - (t - .8) / .22;
+        for (let x = HX - half; x <= HX + half; x++) if (hash(x, y, 71) < keep && inI(x, y)) px(g, x, y, x < HX - half * .4 ? lit : x > HX + half * .82 ? '#357A38' : col);
+        continue;
+      }
+      px(g, HX - half, y, col, half * 2 + 1, 1); px(g, HX - half, y, lit, Math.round(half * .6), 1);
+      if (t > .42) px(g, HX + half - Math.round(half * .18), y, '#357A38', Math.round(half * .18) + 1, 1);   // 오른쪽 그늘
+    }
+    // 꼭대기에서 퍼지는 능선(계곡) — 짧은 사선
+    [-.85, -.5, -.15, .25, .6, .9].forEach(k => { for (let i = 0; i < 9; i++) { const t = .3 + i * .075, y = Math.round(HT + t * (HB - HT)), x = Math.round(HX + k * hHalf(t) * .92); px(g, x, y, '#2F6E2E'); } });
+    for (let i = 0; i < 80; i++) { const t = .45 + hash(i, 7, 61) * .55, y = Math.round(HT + t * (HB - HT)), half = hHalf(t); px(g, Math.round(HX - half + 2 + hash(7, i, 62) * (half * 2 - 5)), y, hash(i, 9, 63) > .5 ? '#2B6E33' : '#5FB85A', 2, 1); }   // 숲(나무)
+    for (let i = 0; i < 24; i++) { const t = hash(i, 11, 64) * .26, y = Math.round(HT + 2 + t * (HB - HT)), half = hHalf(t); px(g, Math.round(HX - half + 1 + hash(11, i, 65) * (half * 2 - 3)), y, '#F2F2F2', 2, 1); }   // 눈 (11월 한라산)
+    ell(HX, HT + 1, 12, 3.6, '#6F665C'); ell(HX, HT + 1, 9, 2.4, '#8E8478'); ell(HX, HT + 1.4, 5, 1.5, '#5FA8E0'); px(g, HX - 3, HT + 1, '#9FD0F0', 2, 1);   // 백록담
+    px(g, HX - 11, HT, '#F2F2F2', 4, 1); px(g, HX + 7, HT, '#F2F2F2', 4, 1); px(g, HX - 2, HT - 2, '#F2F2F2', 4, 1);
+    // 오름 (작은 화산 언덕, 꼭대기 움푹): 동쪽 오름 군락·서쪽
+    const oreum = (x, y, r) => {   // 둥근 언덕(위가 둥글게), 꼭대기 움푹한 분화구, 아래 그늘
+      const R = r * 1.7;
+      for (let i = 0; i <= r; i++) { const half = Math.max(2, Math.round(R * Math.sqrt((i + .7) / (r + .7)))); px(g, x - half, y - r + i, '#5DAE4C', half * 2 + 1, 1); px(g, x - half, y - r + i, '#7FCC6A', Math.max(1, Math.round(half * .5)), 1); }
+      px(g, x - 1, y - r, '#3E8E41', 3, 1); px(g, x, y - r + 1, '#3E8E41'); px(g, x - Math.round(R), y + 1, '#4F8F40', Math.round(R * 2) + 1, 1);
+    };
+    [[152, 44, 5], [164, 40, 4], [158, 64, 4], [172, 54, 4], [146, 54, 3], [40, 72, 4], [30, 80, 3], [56, 80, 3]].forEach(a => oreum(...a));
+    // 성산일출봉: 바다에서 솟은 왕관 모양 분화구, 모래 목으로 섬과 이어짐
+    px(g, 178, 36, '#E9D9A6', 5, 2);
+    ell(189, 33, 9, 6, '#9C7A4B'); ell(189, 36, 9, 3, '#7E6038'); ell(189, 31.5, 6, 3.4, '#7FCC6A'); ell(189, 32, 3, 1.5, '#5DAE4C');
+    for (let x = 181; x <= 197; x += 2) px(g, x, 27 + (x % 4 === 1 ? 0 : 1), '#C4A06A');
+    [182, 185, 189, 193, 196].forEach(x => px(g, x, 35, '#5E4428', 1, 3));   // 절벽 줄무늬
+    px(g, 185, 29, '#9FDB8A', 3, 1);   // 분화구 안 햇빛
+    // 우도 (등대), 비양도 (작은 오름), 차귀도, 가파도, 마라도 (등대, 국토 최남단)
+    ell(199, 20, 7, 4.5, '#F4E7C0'); ell(199, 20, 6, 3.5, '#6CBF5A'); px(g, 196, 19, '#5DAE4C', 4, 1); px(g, 203, 14, '#F2F2F2', 2, 5); px(g, 203, 13, '#C0392B', 2, 1);
+    ell(28, 47, 4, 3, '#3A3532'); ell(28, 47, 3, 2, '#5FAF4E'); px(g, 27, 45, '#3E8E41', 3, 1);
+    ell(14, 82, 3, 2, '#6F665C'); px(g, 13, 81, '#5FAF4E', 3, 1);
+    ell(45, 112, 6, 3, '#F4E7C0'); ell(45, 112, 5, 2, '#6CBF5A'); px(g, 43, 111, '#E07B00', 2, 1); px(g, 47, 112, '#3A7BD5', 2, 1);
+    ell(46, 127, 4, 2.5, '#F4E7C0'); ell(46, 127, 3, 1.6, '#6CBF5A'); px(g, 48, 122, '#F2F2F2', 1, 4); px(g, 48, 121, '#C0392B');
+    // 울릉도처럼 육지에서 오는 다리 (위 가운데 칸) → 제주시 해안
+    const coast = (() => { for (let y = 0; y < H; y++) if (inI(104, y)) return y; return 22; })();
+    px(g, 99, 0, '#8A5A32', 10, coast + 3); for (let y = 1; y < coast + 3; y += 3) px(g, 99, y, '#5E3B1E', 10, 1); px(g, 98, 0, '#5E3B1E', 1, coast + 3); px(g, 109, 0, '#5E3B1E', 1, coast + 3);
+    // 제주공항 (활주로·터미널·비행기)
+    onLand(56, 30, '#8A8A8A', 26, 3); for (let x = 58; x < 80; x += 4) onLand(x, 31, '#F2F2F2', 2, 1); onLand(62, 34, '#E9E4DA', 7, 3); onLand(62, 34, '#3A7BD5', 7, 1);
+    px(g, 66, 24, '#F2F2F2', 8, 2); px(g, 69, 21, '#F2F2F2', 2, 8); px(g, 66, 23, '#F2F2F2', 1, 2); px(g, 66, 25, '#3A7BD5', 8, 1);
+    // 돌하르방 (제주시 다리 앞 양쪽)
+    [[83, 34], [122, 34]].forEach(([x, y]) => { px(g, x, y, '#3E3833', 4, 1); px(g, x, y + 1, '#6B655E', 4, 2); px(g, x + 1, y + 1, '#2A2522'); px(g, x + 2, y + 1, '#2A2522'); px(g, x, y + 3, '#5E5852', 4, 3); px(g, x - 1, y + 6, '#4A4440', 6, 1); });
+    // 마을: 애월·한림·표선·남원·성산
+    [[46, 46, '#D9483B'], [34, 60, '#3A7BD5'], [152, 74, '#E07B00'], [140, 88, '#7A62C9'], [174, 40, '#1F9E8F']].forEach(([x, y, col]) => { onLand(x, y, col, 4, 1); onLand(x, y + 1, '#F2E3C6', 4, 2); onLand(x + 1, y + 2, '#7A4B2A', 1, 1); });
+    // 서귀포 (남쪽 해안 마을)·정방폭포(바다로 떨어지는 폭포)·고깃배
+    [[110, 88, '#C0392B'], [116, 86, '#3A7BD5'], [104, 90, '#D6A21E']].forEach(([x, y, col]) => { onLand(x, y, col, 5, 1); onLand(x, y + 1, '#F2E3C6', 5, 2); onLand(x + 2, y + 2, '#7A4B2A', 1, 1); });
+    const sCoast = (() => { for (let y = H - 1; y > 0; y--) if (inI(122, y)) return y; return 92; })();
+    px(g, 122, sCoast - 4, '#F2F2F2', 1, 6); px(g, 121, sCoast + 2, '#E8F4FF', 3, 1);
+    px(g, 128, sCoast + 6, '#F2F2F2', 6, 1); px(g, 129, sCoast + 7, '#C9C9C9', 4, 1); px(g, 130, sCoast + 3, '#5E3B1E', 1, 3); px(g, 131, sCoast + 4, '#FFE08A', 2, 1);
+    // 중문 (호텔·야자수)
+    onLand(76, 90, '#F2F2F2', 6, 3); onLand(76, 90, '#1F9E8F', 6, 1); onLand(78, 91, '#7EC8E3', 2, 1);
+    [[86, 90], [72, 93]].forEach(([x, y]) => { onLand(x, y, '#8A5A32', 1, 4); px(g, x - 2, y, '#3E9A48', 5, 1); px(g, x - 1, y - 1, '#2F7D3A', 3, 1); px(g, x - 3, y + 1, '#3E9A48', 1, 1); px(g, x + 3, y + 1, '#3E9A48', 1, 1); });
+    // 산방산 (남서쪽 해안 종 모양 바위산)
+    for (let i = 0; i <= 7; i++) { const half = Math.round(2 + Math.sqrt(i / 7) * 5); px(g, 52 - half, 86 + i, '#8E8478', half * 2 + 1, 1); px(g, 52 - half, 86 + i, '#A79C90', Math.max(1, Math.round(half * .5)), 1); }
+    px(g, 50, 88, '#5FAF4E', 2, 1); px(g, 54, 90, '#5FAF4E', 2, 1);
+    // 해녀와 테왁 (주황 부표)
+    [[176, 50], [192, 46]].forEach(([x, y]) => { px(g, x, y, '#FF7A2C', 2, 2); px(g, x + 3, y, '#2A2522', 1, 1); px(g, x - 1, y + 2, '#E8F4FF', 5, 1); });
+    return c;
+  })();
+  // 독도 (4×2칸 그림, 왼쪽 위 칸 (89, 22)): 서도(높고 뾰족)·동도(낮고 넓음 — 경비대·등대·태극기), 두 섬 사이 선착장,
+  //   촛대바위·삼형제굴바위·독립문바위, 괭이갈매기 — 울릉도에서 오는 다리가 선착장에 닿음
+  const DOKDO = (() => {
+    const W = 64, H = 32, c = mk(W, H), g = c.getContext('2d');
+    px(g, 0, 0, '#3C8DDC', W, H);
+    [[3, 4], [40, 2], [52, 14], [2, 30], [46, 30], [58, 24], [34, 27]].forEach(([x, y]) => px(g, x, y, '#6FB0EC', 4, 1));
+    // 다리 → 선착장
+    px(g, 19, 0, '#8A5A32', 10, 19); for (let y = 1; y < 19; y += 3) px(g, 19, y, '#5E3B1E', 10, 1); px(g, 18, 0, '#5E3B1E', 1, 19); px(g, 29, 0, '#5E3B1E', 1, 19);
+    px(g, 17, 19, '#B9B4AA', 19, 3); px(g, 17, 22, '#8E8A82', 19, 1);
+    // 서도
+    for (let y = 3; y <= 28; y++) { const t = (y - 3) / 25, half = Math.round(1 + t * 7 + t * t * 3); px(g, 9 - half, y, '#76675A', half * 2 + 1, 1); px(g, 9 - half, y, '#9A8A76', Math.max(1, Math.round(half * .6)), 1); }
+    [[7, 12], [11, 16], [5, 20], [12, 22], [8, 8], [3, 25]].forEach(([x, y]) => px(g, x, y, '#5FAF4E', 2, 1));
+    px(g, 9, 3, '#C9C1B6'); px(g, 10, 7, '#5E5146', 1, 5); px(g, 7, 14, '#5E5146', 1, 6);
+    // 동도
+    for (let y = 12; y <= 28; y++) { const t = (y - 12) / 16, half = Math.round(7 + t * 7 + t * t * 2); px(g, 46 - half, y, '#76675A', half * 2 + 1, 1); px(g, 46 - half, y, '#9A8A76', Math.max(1, Math.round(half * .5)), 1); }
+    px(g, 39, 12, '#5FAF4E', 15, 1); [[37, 16], [51, 18], [44, 22], [55, 24]].forEach(([x, y]) => px(g, x, y, '#5FAF4E', 2, 1));
+    px(g, 41, 9, '#E9E4DA', 6, 3); px(g, 41, 9, '#3A7BD5', 6, 1); px(g, 42, 10, '#5E7F95'); px(g, 45, 10, '#5E7F95');   // 경비대
+    px(g, 49, 5, '#F2F2F2', 2, 7); px(g, 49, 4, '#C0392B', 2, 1); px(g, 48, 3, '#FFE08A', 4, 1);   // 등대
+    px(g, 39, 4, '#5E3B1E', 1, 8); px(g, 40, 4, '#F2F2F2', 4, 3); px(g, 41, 5, '#C0392B'); px(g, 42, 5, '#1F4EA3'); px(g, 40, 4, '#3B2A20'); px(g, 43, 6, '#3B2A20');   // 태극기
+    // 촛대바위·삼형제굴바위·독립문바위
+    px(g, 15, 17, '#76675A', 2, 11); px(g, 15, 17, '#9A8A76', 1, 11);
+    [[1, 27], [4, 28], [7, 29]].forEach(([x, y]) => px(g, x, y, '#76675A', 2, 2));
+    px(g, 58, 22, '#76675A', 1, 6); px(g, 62, 22, '#76675A', 1, 6); px(g, 58, 21, '#76675A', 5, 2); px(g, 59, 21, '#9A8A76', 2, 1);
+    // 흰 파도 거품·괭이갈매기
+    [[0, 29], [12, 30], [30, 29], [56, 29], [37, 30]].forEach(([x, y]) => px(g, x, y, '#E8F4FF', 3, 1));
+    [[54, 7], [58, 12], [33, 6], [26, 26]].forEach(([x, y]) => { px(g, x, y, '#F2F2F2'); px(g, x + 1, y - 1, '#F2F2F2'); px(g, x + 2, y, '#F2F2F2'); });
+    return c;
+  })();
+  // 추자도 (1칸): 상추자·하추자 두 섬과 추자대교, 마을, 고깃배
+  const CHUJA = (() => {
+    const c = mk(16, 16), g = c.getContext('2d');
+    px(g, 0, 0, '#3C8DDC', 16, 16); px(g, 2, 1, '#6FB0EC', 3, 1); px(g, 11, 14, '#6FB0EC', 3, 1);
+    const blob = (x, y, w, h) => { px(g, x + 1, y, '#3A3532', w - 2, h); px(g, x, y + 1, '#3A3532', w, h - 2); px(g, x + 1, y + 1, '#5FAF4E', w - 2, h - 2); };
+    blob(1, 3, 7, 6); blob(9, 8, 6, 6);
+    px(g, 7, 7, '#C9C9C9', 3, 1); px(g, 3, 5, '#E07B00', 2, 1); px(g, 3, 6, '#F2E3C6', 2, 1); px(g, 11, 10, '#3A7BD5', 2, 1); px(g, 11, 11, '#F2E3C6', 2, 1);
+    px(g, 3, 12, '#F2F2F2', 3, 1); px(g, 4, 11, '#C0392B');
+    return c;
+  })();
   const toTile = (lat, lon) => [(lon - Wd.lon0) / Wd.dlon, (Wd.lat1 - lat) / Wd.dlat];
   // 이름표 상자: 글씨의 실제 위·아래 끝을 재서 상자 한가운데에, 정수 픽셀에 그려서 도트 글씨가 깨지지 않게
   //  y는 상자 위쪽(fromBottom이면 아래쪽) 좌표, 돌려주는 값은 상자 높이
@@ -2895,6 +3051,7 @@ const PX = (() => {
       ctx.drawImage(img, Math.round(x * tsz - camX), Math.round(y * tsz - camY), tsz, tsz);
     }
     if (Wd.ulleung) { const [ux, uy, un] = Wd.ulleung; ctx.drawImage(ULLEUNG, Math.round(ux * tsz - camX), Math.round(uy * tsz - camY), tsz * un, tsz * un); }
+    [[Wd.jeju, JEJU], [Wd.dokdo, DOKDO], [Wd.chuja, CHUJA]].forEach(([r, im]) => { if (r) ctx.drawImage(im, Math.round(r[0] * tsz - camX), Math.round(r[1] * tsz - camY), tsz * r[2], tsz * r[3]); });   // 제주·독도·추자도 그림
     ctx.textAlign = 'center'; ctx.textBaseline = 'bottom';
     Wd.vill.forEach(([name, vx, vy], i) => {
       const dx = Math.round(vx * tsz - camX + tsz / 2), dy = Math.round(vy * tsz - camY + tsz);
