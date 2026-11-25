@@ -2784,7 +2784,8 @@ $('#g-skip').addEventListener('click', gDone);
   [[89, 22, '1'], [90, 22, '6'], [91, 22, '1'], [92, 22, '0'], [89, 23, '0'], [90, 23, '0'], [91, 23, '0'], [92, 23, '0']].forEach(([x, y, v]) => { T[y * W2 + x] = v; });
   Wd.dokdo = [89, 22, 4, 2];
   Wd.W = W2; Wd.t = T.join(''); Wd.r = R.join('');
-  Wd.isl = [['울릉도', 74.4, 17.2], ['독도', 90.5, 24.75]];   // 울릉도 이름표는 섬 왼쪽 바다 위, 독도 이름표는 섬 그림 바로 아래
+  // 섬 이름표 [이름, 칸 x, 이름표 아래끝 y, 크눙이와 겹칠 때 옮길 자리]: 울릉도는 섬 위(나리분지 위쪽, 겹치면 섬 아래쪽 도동항 쪽), 독도는 섬 그림 바로 아래
+  Wd.isl = [['울릉도', 78, 16.75, [78, 20.1]], ['독도', 90.5, 24.75]];
   Wd.ulleung = [76, 15, 5];                       // 화산섬 그림 왼쪽 위 칸, 크기(5×5칸)
 })();
 const PX = (() => {
@@ -3062,10 +3063,13 @@ const PX = (() => {
       const label = SHORT[name] || name.replace(/(특별자치도|특별자치시|광역시|특별시|통합특별시|도)$/, '');
       tag(ctx, label, dx, dy - tsz * 2, S, '#3B2A20', '#FFE9B0', '#3B2A20', true);
     });
-    (Wd.isl || []).forEach(([name, vx, vy]) => {        // 섬 이름표 (울릉도·독도)
+    (Wd.isl || []).forEach(([name, vx, vy, alt]) => {   // 섬 이름표 (울릉도·독도) — 섬 그림 위
       if (opt.label === name) return;                    // 크눙이 아래 이름표와 같으면 한 번만
-      const onIt = Math.hypot(vx + .5 - fx, vy + .5 - fy) < 1.6;      // 크눙이가 섬 위에 있으면 이름표를 머리 위로
-      const dx = Math.round(vx * tsz - camX + tsz / 2), dy = Math.round((vy - (onIt ? 1.5 : 0)) * tsz - camY);
+      // 크눙이(머리 fy-1.1칸 ~ 아래 이름표 fy+1.3칸, 가로 ±0.6칸)와 겹치면 다른 자리로 — 이름표는 폭 약 2칸, 높이 약 0.7칸
+      const hit = (x, y) => opt.sprite && Math.abs(x + .5 - fx) < 1.6 && y > fy - 1.1 && y - .7 < fy + 1.3;
+      let lx = vx, ly = vy;
+      if (hit(lx, ly)) { if (alt && !hit(alt[0], alt[1])) [lx, ly] = alt; else ly = fy - 1.2; }
+      const dx = Math.round(lx * tsz - camX + tsz / 2), dy = Math.round(ly * tsz - camY);
       if (dx < -tsz * 3 || dy < -tsz * 3 || dx > cv.width + tsz * 3 || dy > cv.height + tsz * 3) return;
       tag(ctx, name, dx, dy, S, '#3B2A20', '#FFE9B0', '#3B2A20', true);
     });
