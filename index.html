@@ -1904,6 +1904,19 @@ function run() {
     x.ok = x.timeOver === 0 && x.envMiss.length === 0;
   });
   const strict = pool.filter(x => x.ok);
+  // ── 조건 부합 점수 (0~100): 앞에서 고른 조건에 얼마나 맞는지 — 결과 화면에 보여 주는 점수
+  //  사는 환경·도시/시골은 묶음마다 하나(여럿 고르면 가장 잘 맞는 것, 0.5 이상이면 100%)
+  //  중요한 시설·우선 조건·실버타운은 하나하나(0.6 이상이면 100%, 자료 없으면 50%), 자녀 집 시간 제한은 넘은 만큼 깎음
+  const SOFT = prefSel.filter(k => !HARD.some(g => g.includes(k)));
+  pool.forEach(x => {
+    const parts = HARD.map(g => Math.min(1, Math.max(...g.map(k => x.prefVals[k] ?? 0)) / 0.5));
+    SOFT.forEach(k => { const v = x.prefVals[k]; parts.push(v == null ? 0.5 : Math.min(1, v / 0.6)); });
+    if (limit) parts.push(Math.max(0, 1 - x.timeOver));
+    x.match = parts.length ? Math.round(parts.reduce((a, b) => a + b, 0) / parts.length * 100) : null;
+    // 카드의 '희망사항 n/m 맞음'도 같은 기준 (환경·도시/시골은 묶음마다 하나)
+    x.prefM = HARD.length + SOFT.length;
+    x.prefN = HARD.filter(g => g.some(k => (x.prefVals[k] ?? 0) >= 0.5)).length + SOFT.filter(k => (x.prefVals[k] ?? -1) >= 0.6).length;
+  });
 
   // ── 추천 3곳 고르기 (조건에 모두 맞는 동네 안에서)
   //  ① 1등과 3점 안쪽은 '비슷하게 좋은 곳' — 그 안에서는 지금 사는 곳에서 가까울수록 앞(최대 +3점, 600km면 0)
@@ -1918,6 +1931,11 @@ function run() {
   const keys = o.scope === 'all' ? [x => REGION(x.d.sido), x => x.d.sido, sggKey] : [sggKey];
   const pickFrom = list => {
     if (!list.length) return [];
+    // 조건 부합 점수가 가장 높은 무리 안에서 고름 — 1등보다 10점 넘게 낮은 곳은 빼고, 3곳이 안 되면 10점씩 넓힘
+    const topM = Math.max(...list.map(x => x.match ?? 0));
+    let cut = topM - 10;
+    while (cut > 0 && list.filter(x => (x.match ?? 0) >= cut).length < 3) cut -= 10;
+    list = list.filter(x => (x.match ?? 0) >= cut);
     list.slice().sort((a, b) => b.rank - a.rank).slice(0, 400).forEach(x => { if (x.cost == null) x.cost = monthlyCost(x.d, o).total; });   // 생활비는 위쪽 후보만
     list.sort((a, b) => b.rank - a.rank || (a.cost ?? 1e9) - (b.cost ?? 1e9) || a.near - b.near);
     const best = list[0].rank;
@@ -1959,7 +1977,7 @@ function run() {
       picks.push(x);
     }
   }
-  picks.sort((a, b) => (a.relaxed ? 1 : 0) - (b.relaxed ? 1 : 0) || (a.miss || 0) - (b.miss || 0) || b.rank - a.rank || (b.adj ?? 0) - (a.adj ?? 0));   // 조건에 맞는 곳 먼저(못 맞추면 덜 어긋난 곳 먼저), 그다음 종합 점수 순 (1위 = 결과 발표)
+  picks.sort((a, b) => (a.relaxed ? 1 : 0) - (b.relaxed ? 1 : 0) || (b.match ?? 0) - (a.match ?? 0) || (a.miss || 0) - (b.miss || 0) || b.rank - a.rank || (b.adj ?? 0) - (a.adj ?? 0));   // 조건에 다 맞는 곳 먼저, 그다음 조건 부합 점수가 높은 순(같으면 덜 어긋난 곳·종합 점수 순) (1위 = 결과 발표)
   state.result = { o, cur, picks, strictCount: strict.length, limit };
   state.pick = 0;
   renderDiag(); renderAlts(); renderCost();
@@ -2065,8 +2083,8 @@ function renderAlts() {
               <b style="font-size:.9rem;white-space:nowrap">${x.d.name}</b>
               <small style="font-size:.68rem;color:#5A7A9A;white-space:nowrap;display:block">${[x.d.sido, x.d.sgg].filter(Boolean).join(' ')}</small>
             </div>
-            <span class="stage-sc">${state.prefSel && state.prefSel.length
-              ? `<b>${Math.round(x.rank)}</b><small>편의 ${x.e.score}</small>`
+            <span class="stage-sc">${x.match != null
+              ? `<b>${x.match}</b><small>조건 부합</small>`
               : `<b>${x.e.score}</b><small>${diff > 0 ? '+' + diff : diff}점</small>`}</span>
           </div>
         </div>
@@ -2076,7 +2094,7 @@ function renderAlts() {
       ${x.v != null ? (x.v > 5400
         ? `<div class="far-row">${avatar('wow', 'tiny')}<span><b>헉! 엄청 머네요!!</b><br>자녀 집에서 차로 약 ${fmt(x.v)}</span></div>`
         : `<div class="pref" style="color:#5A7A9A">자녀 집에서 차로 약 ${fmt(x.v)}</div>`) : ''}
-      ${state.prefSel && state.prefSel.length ? `<div class="pref">희망사항 ${x.prefHits.length}/${state.prefSel.length} 맞음${x.prefHits.length ? ' · ' + x.prefHits.join(', ') : ''}</div>` : ''}
+      ${state.prefSel && state.prefSel.length ? `<div class="pref">희망사항 ${x.prefN}/${x.prefM} 맞음${x.prefHits.length ? ' · ' + x.prefHits.join(', ') : ''}</div>` : ''}
       <div class="ai-desc" id="ai-desc-${i}" style="background:#EAF3FC;border-radius:12px;padding:10px 12px;font-size:.82rem;line-height:1.6"></div>
       <div class="btns">
         <button type="button" class="detail-btn" data-k="${i}">상세 정보</button>
@@ -2104,10 +2122,10 @@ function renderAlts() {
       if (el && data.content?.[0]?.text) { el.style.display = 'block'; el.textContent = data.content[0].text; }
     }).catch(() => {});   // Claude 밖(안드로이드 등)에서는 위의 앱 안 문장을 그대로 씀
   });
-  $('#alts').innerHTML = `<div class="rc-talk"><p><b>${scopeTxt}에서 찾은 TOP 3예요!</b><br>${picks.some(x => x.relaxed) ? (state.result.strictCount ? `조건에 모두 맞는 동네가 ${state.result.strictCount}곳뿐이라, 나머지는 조건에 가장 가까운 곳으로 채웠어요.` : '조건에 모두 맞는 동네가 없어서 가장 가까운 곳을 골랐어요. 자녀 집 시간 제한을 늘리거나 원하는 환경을 바꿔 보세요.') : state.prefSel && state.prefSel.length ? (picks.every(x => x.prefHits.length === state.prefSel.length) ? '조건이랑 희망사항에 딱 맞는 동네들이에요.' : '조건에 맞는 동네 중에서 희망사항까지 함께 따져 골랐어요. 맞는 희망사항은 카드에 적어 뒀어요.') : '같은 조건이면 여기가 더 편하세요!'} 카드를 누르시면 지도에서 보여 드릴게요.</p></div>${body}
+  $('#alts').innerHTML = `<div class="rc-talk"><p><b>${scopeTxt}에서 찾은 TOP 3예요!</b><br>${picks.some(x => x.relaxed) ? (state.result.strictCount ? `조건에 모두 맞는 동네가 ${state.result.strictCount}곳뿐이라, 나머지는 조건에 가장 가까운 곳으로 채웠어요.` : '조건에 모두 맞는 동네가 없어서 가장 가까운 곳을 골랐어요. 자녀 집 시간 제한을 늘리거나 원하는 환경을 바꿔 보세요.') : state.prefSel && state.prefSel.length ? (picks.every(x => x.prefN === x.prefM) ? '조건이랑 희망사항에 딱 맞는 동네들이에요.' : '조건에 맞는 동네 중에서 희망사항까지 함께 따져 골랐어요. 맞는 희망사항은 카드에 적어 뒀어요.') : '같은 조건이면 여기가 더 편하세요!'} 카드를 누르시면 지도에서 보여 드릴게요.</p></div>${body}
     <div style="height:8px"></div>
     <button type="button" id="btn-retry" style="margin-top:10px" style="width:100%;padding:11px;border:1.5px solid var(--line);border-radius:10px;background:var(--surface);font-size:.85rem;font-weight:600;cursor:pointer;font-family:inherit;color:var(--muted)">조건 바꿔서 다시 진단하기</button>
-    <p class="note" style="margin-top:8px">현재 동네가 충분히 편리하다면 이사보다 부족한 시설(방문 진료, 배달, 이동 지원 등)을 보완하는 편이 나을 수 있습니다.</p>${state.prefSel && state.prefSel.length ? `<p class="note">희망사항은 생활 편의 점수와 함께 순위에 반영했습니다(편의 55% · 희망사항 45%).</p>` : ''}`;
+    <p class="note" style="margin-top:8px">현재 동네가 충분히 편리하다면 이사보다 부족한 시설(방문 진료, 배달, 이동 지원 등)을 보완하는 편이 나을 수 있습니다.</p>${state.prefSel && state.prefSel.length ? `<p class="note">희망사항은 생활 편의 점수와 함께 순위에 반영했습니다(편의 55% · 희망사항 45%).</p>` : ''}${picks.some(x => x.match != null) ? `<p class="note">카드의 점수는 조건 부합 점수예요. 앞에서 고르신 조건(사는 환경, 도시·시골, 자녀 집 거리, 중요한 시설 등)에 얼마나 맞는지 100점 만점으로 나타냈어요.</p>` : ''}`;
   $('#btn-retry')?.addEventListener('click', () => { showScreen('screen-input'); goStep(2); });
   $('#alts').querySelectorAll('.cand').forEach(b => b.addEventListener('click', () => {
     state.pick = +b.dataset.k;
@@ -2171,7 +2189,7 @@ function openCompare(k) {
     <div class="cmp-sum">
       <div><span class="dot pick"></span>추천 동네가 더 나은 항목 <b>${winB.length}개</b>${winB.length ? `<small>${winB.join(', ')}</small>` : ''}</div>
       <div><span class="dot"></span>현재 동네가 더 나은 항목 <b>${winA.length}개</b>${winA.length ? `<small>${winA.join(', ')}</small>` : ''}</div>
-      <div class="cmp-diff">생활 편의 점수 <b style="color:var(--${diff >= 0 ? 'good' : 'bad'})">${diff > 0 ? '+' : ''}${diff}점</b></div>
+      <div class="cmp-diff">${x.match != null ? `추천 동네 조건 부합 점수 <b style="color:var(--good)">${x.match}점</b>` : `생활 편의 점수 <b style="color:var(--${diff >= 0 ? 'good' : 'bad'})">${diff > 0 ? '+' : ''}${diff}점</b>`}</div>
     </div>
     <table class="cmp">
       <thead><tr><th></th><th>현재<small>${p.name}</small></th><th>추천<small>${x.d.name}</small></th></tr></thead>
@@ -2268,7 +2286,8 @@ function openDrawer(x, cur) {
     <div class="drawer-section">
       <div class="info-grid">
         <div class="info-box"><div class="val">${e.score}점</div><div class="lbl">생활 편의 점수</div></div>
-        <div class="info-box"><div class="val" style="color:var(--${diff>=0?'good':'bad'})">${diff>0?'+':''}${diff}점</div><div class="lbl">현재 동네 대비</div></div>
+        ${x.match != null ? `<div class="info-box"><div class="val" style="color:var(--good)">${x.match}점</div><div class="lbl">조건 부합 점수</div></div>`
+          : `<div class="info-box"><div class="val" style="color:var(--${diff>=0?'good':'bad'})">${diff>0?'+':''}${diff}점</div><div class="lbl">현재 동네 대비</div></div>`}
       </div>
       <div class="score-bar-wrap">${scoreRows}</div>
     </div>
@@ -3062,7 +3081,8 @@ function renderFinal() {
     ${x.relaxed ? `<div style="background:#FFF1C1;color:#7A3326;border:2px solid #3B2A20;padding:6px 10px;font-size:.78rem;text-align:center;word-break:keep-all">조건에 모두 맞는 동네가 없어서, 조건에 가장 가까운 곳이에요</div>` : ''}
     <div class="fx-gain">
       <div><b class="${save < 0 ? 'minus' : ''}">${save >= 0 ? '월 ' + save + '만 원' : '월 ' + (-save) + '만 원 더'}</b><small>${save >= 0 ? `생활비 절약<br>(1년 약 ${Math.round(save * 12)}만 원)` : '생활비'}</small></div>
-      <div><b class="${gain < 0 ? 'minus' : ''}">${gain >= 0 ? '+' : ''}${gain}점</b><small>생활 편의 점수</small></div>
+      ${x.match != null ? `<div><b>${x.match}점</b><small>조건 부합 점수<br>(100점 만점)</small></div>`
+        : `<div><b class="${gain < 0 ? 'minus' : ''}">${gain >= 0 ? '+' : ''}${gain}점</b><small>생활 편의 점수</small></div>`}
     </div>
     ${homeCard}
     <div class="fx-btns">
